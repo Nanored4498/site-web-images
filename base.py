@@ -27,6 +27,8 @@ class Vec2D:
 	def __str__(self):
 		return "(" + str(round(self.x, 2)) + ", " + str(round(self.y, 2)) + ")"
 	
+	__repr__ = __str__
+
 	def dot(self, v):
 		return v.x * self.x + v.y * self.y
 	
@@ -146,3 +148,27 @@ class UnionFind:
 		else:
 			self.p[x] = y
 			self.size[y] += self.size[x]
+
+def bezier(ps, num_ims, num_points_between_ims):
+	res = []
+	t = 0
+	dt = 1 / num_ims / num_points_between_ims
+	pp = ps[0]
+	for i in range(num_ims):
+		im = []
+		points = [pp]
+		for j in range(num_points_between_ims):
+			t += dt
+			ps2 = ps
+			while len(ps2) > 1:
+				nps = []
+				for k in range(len(ps2)-1):
+					nps.append(t*ps2[k+1] + (1-t)*ps2[k])
+				ps2 = nps
+				if j == num_points_between_ims-1:
+					im.append(ps2)
+			points.append(ps2[0])
+		pp = points[-1]
+		res.append((im, points))
+	return res
+				
