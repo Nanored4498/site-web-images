@@ -36,5 +36,4 @@ for t in range(T):
 	print(t / T, len(im))
 
 ani = anim.ArtistAnimation(fig, ims, interval=33, repeat=True)
-ani.save('res.gif', writer='imagemagick')
 # pl.show()

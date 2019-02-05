@@ -35,8 +35,11 @@ class Vec2D:
 	def norm1(self):
 		return abs(self.x) + abs(self.y)
 	
+	def norm22(self):
+		return self.x ** 2 + self.y ** 2
+
 	def norm2(self):
-		return (self.x ** 2 + self.y ** 2) ** 0.5
+		return self.norm22() ** 0.5
 
 def turnPositive(v):
 	return Vec2D(-v.y, v.x)
@@ -77,9 +80,9 @@ def pointSetSpace(x0, x1, y0, y1, n, e):
 def pointSetCircle(x, y, r, n):
 	s = []
 	for _ in range(n):
-		p = math.sqrt(random())
+		p = math.sqrt(random()) * r
 		t = math.pi * 2 * random()
-		s.append(Vec2D(p * math.cos(t), p * math.sin(t)))
+		s.append(Vec2D(x + p * math.cos(t), y + p * math.sin(t)))
 	return s
 
 def setToLists(s):
@@ -154,7 +157,7 @@ def bezier(ps, num_ims, num_points_between_ims):
 	t = 0
 	dt = 1 / num_ims / num_points_between_ims
 	pp = ps[0]
-	for i in range(num_ims):
+	for _ in range(num_ims):
 		im = []
 		points = [pp]
 		for j in range(num_points_between_ims):
