@@ -25,9 +25,15 @@ class Vec2D:
 		return self.x < v.x or (self.x == v.x and self.y < v.y)
 	
 	def __str__(self):
-		return "(" + str(round(self.x, 2)) + ", " + str(round(self.y, 2)) + ")"
+		return "(" + str(round(self.x, 3)) + ", " + str(round(self.y, 3)) + ")"
 	
 	__repr__ = __str__
+
+	def __eq__(self, other):
+		return abs(self.x - other.x) < 1e-5 and abs(self.y - other.y) < 1e-5
+	
+	def __hash__(self):
+		return hash((self.x, self.y))
 
 	def dot(self, v):
 		return v.x * self.x + v.y * self.y
@@ -91,6 +97,19 @@ def setToLists(s):
 		x.append(p.x)
 		y.append(p.y)
 	return x, y
+
+def setToRectangle(s):
+	x0, x1 = min(p.x for p in s), max(p.x for p in s)
+	y0, y1 = min(p.y for p in s), max(p.y for p in s)
+	return x0, x1, y0, y1
+
+def densify(s, m):
+	res = []
+	for i in range(len(s)-1):
+		for j in range(m):
+			res.append((s[i]*(m-j) + s[i+1]*j) / m)
+	res.append(s[-1])
+	return res
 
 class Triangle:
 	def __init__(self, a, b, c):

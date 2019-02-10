@@ -31,29 +31,29 @@ for t in ts:
 	cs.append(c)
 	for e in t.edges():
 		a, b = e
-		if e in es:
-			x, y = setToLists([es[e], c])
-			# pl.plot(x, y, linewidth=0.4, color='red')
-			del es[e]
-		else:
-			e2 = a, b
-			if e2 in es:
-				# pl.plot(x, y, linewidth=0.4, color='red')	
-				pl.plot(x, y)
-				del es[e2]
-			else:
-				es[e] = c
+	# 	if e in es:
+	# 		x, y = setToLists([es[e], c])
+	# 		pl.plot(x, y, linewidth=0.4, color='red')
+	# 		del es[e]
+	# 	else:
+	# 		e2 = a, b
+	# 		if e2 in es:
+	# 			pl.plot(x, y, linewidth=0.4, color='red')	
+	# 			pl.plot(x, y)
+	# 			del es[e2]
+	# 		else:
+	# 			es[e] = c
 		for p in [a, b]:
 			if p in vs:
 				if c not in vs[p]:
 					vs[p].append(c)
 			else:
 				vs[p] = [c]
-for e in es:
-	a, b = e
-	v = turnPositive(b-a)
+# for e in es:
+# 	a, b = e
+# 	v = turnPositive(b-a)
 
-im = Image.open("panda.jpg").convert("RGB")
+im = Image.open("base_images/panda.jpg").convert("RGB")
 w, h = im.width, im.height
 toSee = [[True]*h for _ in range(w)]
 
