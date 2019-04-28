@@ -1,6 +1,7 @@
 
 from random import random
 import math
+import numpy as np
 
 class Vec2D:
 	def __init__(self, x, y):
@@ -30,7 +31,7 @@ class Vec2D:
 	__repr__ = __str__
 
 	def __eq__(self, other):
-		return abs(self.x - other.x) < 1e-5 and abs(self.y - other.y) < 1e-5
+		return type(other) == Vec2D and abs(self.x - other.x) < 1e-5 and abs(self.y - other.y) < 1e-5
 	
 	def __hash__(self):
 		return hash((self.x, self.y))
@@ -53,11 +54,110 @@ def turnPositive(v):
 def positiveOrientation(a, b, c):
 	return turnPositive(b - a).dot(c - b) >= 0
 
-def pointInPolygon(p, P):
-	for i in range(len(P)-1):
-		if not positiveOrientation(P[i], P[i+1], p):
-			return False
-	return True
+def det2(a, b):
+	return a.x*b.y - a.y*b.x
+
+def interLine(a0, a1, b0, b1):
+	a = a1-a0
+	b = b1-b0
+	d = det2(a, b)
+	if d == 0:
+		return None
+	da = det2(a0, a1)
+	db = det2(b0, b1)
+	return (db*a - da*b) / d
+
+def insideConv(p, P):
+	i, j = 1, len(P)-2
+	while j-i > 1:
+		mid = (j+i) // 2
+		if positiveOrientation(P[0], P[mid], p):
+			i = mid
+		else:
+			j = mid
+	return positiveOrientation(P[0], P[i], p) and positiveOrientation(P[i], P[j], p) and positiveOrientation(P[j], P[0], p)
+
+def interConv(P, Q):
+	i, j = 1, 1
+	inters = []
+	stopP, stopQ = False, False
+	while True:
+		if i == len(P):
+			stopP = True
+			i = 1
+			if stopQ:
+				break
+		if j == len(Q):
+			stopQ = True
+			j = 1
+			if stopP:
+				break
+		a = P[i] - P[i-1]
+		b = Q[j] - Q[j-1]
+		a_left_of_b = positiveOrientation(Q[j-1], Q[j], P[i])
+		a_point_left_b = turnPositive(b).dot(a) > 0
+		b_left_of_a = positiveOrientation(P[i-1], P[i], Q[j])
+		a_point_b = a_left_of_b != a_point_left_b
+		b_point_a = b_left_of_a == a_point_left_b
+		if a_point_b:
+			if b_point_a:
+				if a_left_of_b:
+					j += 1
+				else:
+					i += 1
+			else:
+				i += 1
+		else:
+			if b_point_a:
+				j += 1
+			else:
+				inter = interLine(P[i-1], P[i], Q[j-1], Q[j])
+				min_x = max(min(P[i-1].x, P[i].x), min(Q[j-1].x, Q[j].x))
+				max_x = min(max(P[i-1].x, P[i].x), max(Q[j-1].x, Q[j].x))
+				min_y = max(min(P[i-1].y, P[i].y), min(Q[j-1].y, Q[j].y))
+				max_y = min(max(P[i-1].y, P[i].y), max(Q[j-1].y, Q[j].y))
+				if inter != None and min_x <= inter.x <= max_x and min_y <= inter.y <= max_y:
+					inters.append((i, j, inter, a_left_of_b))
+				if a_left_of_b:
+					j += 1
+				else:
+					i += 1
+	if inters == []:
+		if insideConv(P[0], Q):
+			return P.copy()
+		else:
+			return Q.copy()
+	inters.append(inters[0])
+	res = []
+	for i in range(len(inters)-1):
+		a, b, inter, is_p = inters[i]
+		res.append(inter)
+		if is_p:
+			na = inters[i+1][0]
+			while a != na:
+				res.append(P[a])
+				a += 1
+				if a == len(P):
+					a = 1
+		else:
+			nb = inters[i+1][1]
+			while b != nb:
+				res.append(Q[b])
+				b += 1
+				if b == len(Q):
+					b = 1
+	res.append(res[0])
+	return res
+
+
+def centroid(P):
+	res = Vec2D(0, 0)
+	mass = 0
+	for i in range(1, len(P)-2):
+		t = Triangle(P[0], P[i], P[i+1], compute_mass=True)
+		res += t.centroid * t.area
+		mass += t.area
+	return res / mass
 
 def pointSet(x0, x1, y0, y1, n):
 	s = []
@@ -96,7 +196,7 @@ def setToLists(s):
 	for p in s:
 		x.append(p.x)
 		y.append(p.y)
-	return x, y
+	return np.array(x), np.array(y)
 
 def setToRectangle(s):
 	x0, x1 = min(p.x for p in s), max(p.x for p in s)
@@ -112,22 +212,35 @@ def densify(s, m):
 	return res
 
 class Triangle:
-	def __init__(self, a, b, c):
+	def __init__(self, a, b, c, compute_cent=False, compute_mass=False):
 		self.a = a
 		self.b = b
 		self.c = c
-		ac = c - a
-		dac = ac.dot((c-b)) / 2
-		pab = turnPositive(b-a)
+		if compute_cent:
+			self.compute_center()
+		if compute_mass:
+			self.compute_centroid()
+	
+	def compute_center(self):
+		ac = self.c - self.a					# Vector AC
+		dac = ac.dot((self.c-self.b)) / 2
+		pab = turnPositive(self.b-self.a)
 		d = ac.dot(pab)
-		self.center = (a + b) / 2 + dac / d * pab
-		v = self.center - a
+		self.center = (self.a + self.b) / 2 + dac / d * pab
+		v = self.center - self.a
 		self.r2 = v.dot(v)
+	
+	def compute_centroid(self):
+		self.centroid = (self.a+self.b+self.c)/3
+		self.area = (self.c-self.a).dot(turnPositive(self.b - self.a)) / 2
 
 	def insideCircle(self, p):
 		v = p - self.center
 		return v.dot(v) < self.r2
 	
+	def radius(self):
+		return self.r2 ** 0.5
+
 	def edges(self):
 		return [(self.a, self.b), (self.a, self.c), (self.b, self.c)]
 	

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from base import pointSetSpace, setToLists, turnPositive, Vec2D, pointInPolygon
+from base import pointSetSpace, setToLists, turnPositive, Vec2D, insideConv
 import pylab as pl
 import matplotlib.animation as anim
 from delaunay import delaunay
@@ -59,7 +59,7 @@ toSee = [[True]*h for _ in range(w)]
 
 def getCol(x, y, P, first=True):
 	col, np = [0, 0, 0], 0
-	if first or pointInPolygon(Vec2D(x/w*rat, y/h), P):
+	if first or insideConv(Vec2D(x/w*rat, y/h), P):
 		toSee[x][y] = False
 		rgb = im.getpixel((x, h-1-y))
 		for i in range(3):

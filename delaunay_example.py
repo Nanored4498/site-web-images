@@ -3,34 +3,41 @@ from base import pointSetSpace, setToLists
 import pylab as pl
 import matplotlib.animation as anim
 from delaunay import delaunay
+import plot_opt
+from random import random
 
-n = 35
+n = 32
 s = pointSetSpace(0, 1, 0, 1, n, 0.8 / n**0.5)
+s.sort(key=lambda p: -abs(p.x-0.5) - abs(p.y-0.5) + random())
 
 fig = pl.figure()
-xs, ys = setToLists(s)
-pl.scatter(xs, ys, linewidths=1.8)
 tss = delaunay(s, True)
-mts = 0
-for ts in tss:
-	mts = max(mts, len(ts))
-cts = []
-for _ in range(mts):
-	c, = pl.plot([], [], linewidth=1.3)
-	cts.append(c)
-ltss = len(tss)
-m = ltss + 8
 
-def animate(i):
-	j = i % m
-	if j >= ltss:
-		return
-	ts = tss[j]
-	for k in range(len(ts)):
-		x, y = ts[k]
-		cts[k].set_data(x, y)
-	for k in range(len(ts), mts):
-		cts[k].set_data([], [])
+ims = []
+pts = {}
+x, y = setToLists(s)
+ps = [pl.scatter(x, y, color='green', s=10)]
+toc = lambda t: (0, 0.5-0.5*min(1, max(0, t.center.x)), 0.5+0.5*min(1, max(0, t.center.y)))
+for i in range(n):
+	p = pl.scatter([s[i].x], [s[i].y], color='black', s=64)
+	ps.append(p)
+	im = ps.copy()
+	for t in tss[i]:
+		if t in pts:
+			im.append(pts[t])
+		else:
+			x, y = t.toPylab()
+			im.append(pl.plot(x, y, color='red')[0])
+			if t in tss[i+1]:
+				pts[t] = pl.plot(x, y, color=toc(t))[0]
+	ims.append(im)
+	if 12 < i < 17:
+		ims.append(im)
+im = ps.copy()
+for t in tss[-1]:
+	im.append(pts[t])
+ims += [im] * 5
 
-ani = anim.FuncAnimation(fig, animate, repeat=True, interval=220)
-pl.show()
+ani = anim.ArtistAnimation(fig, ims, interval=220, repeat=True)
+ani.save('res.gif', writer='imagemagick')
+# pl.show()

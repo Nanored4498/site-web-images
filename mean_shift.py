@@ -3,7 +3,7 @@ from base import pointSet, setToLists, pointSetCircle, pointSetSpace, Vec2D
 import pylab as pl
 import matplotlib.animation as anim
 import math
-from random import random
+import clustering
 
 NC = 3
 noise = pointSet(0.02, 0.98, 0, 1, 22)
@@ -23,6 +23,8 @@ inter = 0.15
 lenp = len(ps)
 ds = [10] * lenp
 centers = []
+clusters = []
+k_mean_ims = []
 
 vertl, = pl.plot([1, 1], [0, 1], color='black')
 t1, t2 = pl.text(0.05, 0.98, "Mean-Shift"), pl.text(1.05, 0.98, "K-Mean")
@@ -52,39 +54,22 @@ for ni in range(N):
 		for i in range(len(lines)):
 			lines[i].append(np[i])
 	#####################################################
-	if ni % (N // 7) == 0 and len(centers) < NC:
-		s = sum(ds)
-		dsn = [d / s for d in ds]
-		r = random()
-		i = 0
-		while r > dsn[i]:
-			r -= dsn[i]
-			i += 1
-		centers.append(ps[i])
-		for j in range(lenp):
-			ds[j] = min(ds[j], (ps[i] - ps[j]).norm22())
-	ncs = len(centers)
-	clus = [[] for _ in range(ncs)]
-	sc = [Vec2D(0, 0) for _ in range(ncs)]
-	for p in ps:
-		i = -1
-		d = 10
-		for j in range(ncs):
-			nd = (p - centers[j]).norm22()
-			if nd < d:
-				i, d = j, nd
-		clus[i].append(p + Vec2D(1, 0))
-		sc[i] += p
-	for i in range(ncs):
-		x, y = setToLists(clus[i])
-		nc = sc[i] / len(clus[i])
-		if ni % (N // 7) == 0 and ncs == NC:
-			centers[i] = nc
-		col = (nc.x, abs(nc.x - nc.y), nc.y)
-		im.append(pl.scatter(nc.x+1, nc.y, color=col, marker='x', s=[100]))
-		im.append(pl.scatter(x, y, color=col))
+	if ni % (N // 7) == 0:
+		if len(centers) < NC:
+			clustering.add_uniform_center(ps, ds, centers)
+		clusters = clustering.k_mean_step(centers, ps)
+		k_mean_ims = []
+		for i in range(len(centers)):
+			x, y = setToLists(clusters[i])
+			x += 1
+			center = centers[i]
+			col = (center.x, abs(center.x - center.y), center.y)
+			center += Vec2D(1, 0)
+			k_mean_ims.append(pl.scatter(center.x, center.y, color=col, marker='x', s=[100]))
+			k_mean_ims.append(pl.scatter(x, y, color=col))
+	im += k_mean_ims
 	ims.append(im)
 
 ani = anim.ArtistAnimation(fig, ims, interval = 100, repeat=True)
-ani.save('res.gif', writer='imagemagick')
-#pl.show()
+#ani.save('res.gif', writer='imagemagick')
+pl.show()

@@ -14,8 +14,10 @@ phs = [0]
 rs2 = []
 adds = 0
 lr = -1
+sr = 0
 for th in ths:
 	r = sum([a[i] * np.cos(i * th / 2 + p[i]) ** 2 for i in range(M)])
+	sr += r**2
 	r2 = d-r
 	if lr != -1:
 		add = (lr + r) / (r2 + d - lr) * 2 * np.pi / N
@@ -44,5 +46,5 @@ for j in range(NI):
 	ims.append([pl.plot(x, y, "b")[0], pl.plot(x2, y2, "r")[0]])
 
 ani = anim.ArtistAnimation(fig, ims, interval=60, repeat=True)
-ani.save('res.gif', writer='imagemagick')
-# pl.show()
+# ani.save('res.gif', writer='imagemagick')
+pl.show()

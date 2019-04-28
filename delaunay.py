@@ -21,19 +21,9 @@ def update_triangu(p, ts):
 	for t in badT:
 		ts.remove(t)
 	for e in poly:
-		ts.add(Triangle(p, e[0], e[1]))
+		ts.add(Triangle(p, e[0], e[1], compute_cent=True))
 
-def delaunay(s, steps=False):
-	x0, x1, y0, y1 = setToRectangle(s)
-	W, H = x1 - x0, y1 - y0
-	bigT = Triangle(Vec2D(x0 - W*6/10, y0 - H/20), Vec2D(x1 + W*6/10, y0 - H/20), Vec2D(x0 + W/2, y1 + H*11/10))
-	ts = {bigT}
-	if steps:
-		sts = [topl(ts)]
-	for p in s:
-		update_triangu(p, ts)
-		if steps:
-			sts.append(topl(ts))
+def remove_tri(ts, bigT):
 	badT = []
 	for t in ts:
 		for v in t.vertices():
@@ -42,8 +32,23 @@ def delaunay(s, steps=False):
 				break
 	for t in badT:
 		ts.remove(t)
+
+def delaunay(s, steps=False):
+	x0, x1, y0, y1 = setToRectangle(s)
+	W, H = x1 - x0, y1 - y0
+	bigT = Triangle(Vec2D(x0 - W*6/10, y0 - H/20), Vec2D(x1 + W*6/10, y0 - H/20), Vec2D(x0 + W/2, y1 + H*11/10), compute_cent=True)
+	ts = {bigT}
 	if steps:
-		return sts + [topl(ts)]
+		sts = []
+	for p in s:
+		update_triangu(p, ts)
+		if steps:
+			ts2 = ts.copy()
+			remove_tri(ts2, bigT)
+			sts.append(ts2)
+	remove_tri(ts, bigT)
+	if steps:
+		return sts + [ts]
 	return ts
 
 def toGraph(s):
