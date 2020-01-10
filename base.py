@@ -47,6 +47,9 @@ class Vec2D:
 
 	def norm2(self):
 		return self.norm22() ** 0.5
+	
+	def angle(self):
+		return math.atan2(self.y, self.x)
 
 def turnPositive(v):
 	return Vec2D(-v.y, v.x)
@@ -149,7 +152,6 @@ def interConv(P, Q):
 	res.append(res[0])
 	return res
 
-
 def centroid(P):
 	res = Vec2D(0, 0)
 	mass = 0
@@ -158,6 +160,14 @@ def centroid(P):
 		res += t.centroid * t.area
 		mass += t.area
 	return res / mass
+
+def area(P):
+	res = 0
+	a = P[0]
+	for i in range(1, len(P)-2):
+		b, c = P[i], P[i+1]
+		res += abs((c-a).dot(turnPositive(b-a)))
+	return res/2
 
 def pointSet(x0, x1, y0, y1, n):
 	s = []
@@ -175,7 +185,7 @@ def pointSetSpace(x0, x1, y0, y1, n, e):
 		v = Vec2D(x, y)
 		b = True
 		for j in range(i):
-			if (s[j] - v).norm1() < e:
+			if (s[j] - v).norm2() < e:
 				b = False
 				break
 		if b:
