@@ -1,27 +1,21 @@
-from scipy import ndimage, misc, fftpack
+from scipy import ndimage, fftpack
 from skimage import color
 import numpy as np
 import pylab as pl
-import imageio
+import cv2 as cv
 
 ### PARAMETERS ###
-K = [32, 64, 16, 128]
+K = 8
 ##################
 
 # Load
 content = pl.imread("./base_images/moulin.jpg")
 style = pl.imread("./base_images/starry_night.jpg")
-w0, h0, c0 = content.shape
-w2, h2, c = style.shape
 
 # Convert to LAB
+# content = np.array([ndimage.zoom(content[:,:,i], 0.4) for i in range(3)]).transpose((1, 2, 0))
 content = color.rgb2lab(content)
 style = color.rgb2lab(style)
-
-# Zoom
-zoom_factor = np.sqrt((w0*h0) / (w2*h2))
-style = np.array([ndimage.zoom(style[:,:,i], zoom_factor) for i in range(c)])
-style = style.transpose((1, 2, 0))
 
 # Make shape multiple of 8
 def shape_padding(im, pad):
@@ -35,27 +29,38 @@ def shape_padding(im, pad):
 		im = np.concatenate((im, lc), 1)
 	return im
 
-k = 1
-for ki in K:
-	k *= ki // np.math.gcd(k, ki)
-content = shape_padding(content, k)
-style = shape_padding(style, k)
+def resize_input(content0, style0, K):
+	# Padding
+	content = shape_padding(content0, K)
+	style = shape_padding(style0, K)
+	# Style tiling
+	while style.shape[0] < content.shape[0]:
+		style = np.concatenate((style, style[:content.shape[0]-style.shape[0]]), 0)
+	while style.shape[1] < content.shape[1]:
+		style = np.concatenate((style, style[:,:content.shape[1]-style.shape[1]]), 1)
+	return content, style
 
 # DCT
 def dct2(im, K):
-	res = np.zeros(im.shape)
-	for i in np.r_[:im.shape[0]:K]:
-		for j in np.r_[:im.shape[1]:K]:
-			res[i:(i+K), j:(j+K), :] = fftpack.dct(fftpack.dct(im[i:(i+K), j:(j+K), :], axis=0, norm='ortho'), axis=1, norm='ortho')
+	res = im[np.r_[:im.shape[0]:K][:,None,None,None] + np.r_[:K][:,None],
+			np.r_[:im.shape[1]:K][:,None,None] + np.r_[:K], :]
+	res = fftpack.dct(res, axis=2, norm='ortho', overwrite_x=True)
+	res = fftpack.dct(res, axis=3, norm='ortho', overwrite_x=True)
+	return res
+
+# iDCT
+def idct2(im, K):
+	res = fftpack.idct(im, axis=3, norm='ortho')
+	res = fftpack.idct(res, axis=2, norm='ortho', overwrite_x=True)
+	res = res[np.r_[:im.shape[0]].repeat(K)[:,None], np.r_[:im.shape[1]].repeat(K),
+			np.tile(np.r_[:K], im.shape[0])[:,None], np.tile(np.r_[:K], im.shape[1]), :]
 	return res
 
 # Optimal Transport
 def ot(src, dest, nsteps, ndir):
-	n, d = src.shape
-	if dest.shape[0] != n:
-		np.random.shuffle(dest)
-		if dest.shape[0] > n: dest = dest[:n,:]
-		else: dest = np.concatenate((dest, dest[:n-dest.shape[0], :]), 0)
+	d = src.shape[-1]
+	K = src.shape[-2]
+	ix, iy = np.r_[:K][:,None], np.r_[:K]
 	for _ in range(nsteps):
 		add = np.zeros(src.shape)
 		for _ in range(ndir):
@@ -63,44 +68,54 @@ def ot(src, dest, nsteps, ndir):
 			v /= np.linalg.norm(v)
 			psrc = src.dot(v)
 			pdest = dest.dot(v)
-			isrc = np.argsort(psrc)
-			idest = np.argsort(pdest)
-			ind = np.empty(n, isrc.dtype)
-			ind[isrc] = np.arange(n)
-			add += v * (pdest[idest] - psrc[isrc])[ind].reshape(n, 1)
+			isrc = np.argsort(psrc, axis=0)
+			add[isrc, ix, iy] += v * np.expand_dims(np.sort(pdest, axis=0) - psrc[isrc, ix, iy], -1)
 		src += add / ndir
 
-# iDCT
-def idct2(im, K):
-	res = np.zeros(im.shape)
-	for i in np.r_[:im.shape[0]:K]:
-		for j in np.r_[:im.shape[1]:K]:
-			res[i:(i+K), j:(j+K), :] = fftpack.idct(fftpack.idct(im[i:(i+K), j:(j+K), :] , axis=0, norm='ortho' ), axis=1, norm='ortho')
-	return res
-
 # transfert
-def trans(content0, style0, K):
-	# DCT
-	content = dct2(content0, K)
-	style = dct2(style0, K)
-	# OT
+def trans0(content0, style0, K):
+	w0, h0, c0 = content0.shape
+	content, style = resize_input(content0, style0, K)
 	w, h, c = content.shape
-	w2, h2, c = style.shape
-	for i in range(K):
-		for j in range(K):
-			src = content[i:w:K, j:h:K, :c].reshape((w*h)//(K*K), c)
-			dest = style[i:w2:K, j:h2:K, :c].reshape((w2*h2)//(K*K), c)
-			ot(src, dest, 20, 2)
-			content[i:w:K, j:h:K, :c] = src.reshape(w//K, h//K, c)
+	# DCT
+	content = dct2(content, K)
+	style = dct2(style, K)
+	# OT
+	src = content.reshape((w*h)//(K*K), K, K, c)
+	dest = style.reshape((w*h)//(K*K), K, K, c)
+	ot(src, dest, 20, 2)
+	content = src.reshape(w//K, h//K, K, K, c)
 	# iDCT
 	content = idct2(content, K)
-	return content
+	return content[:w0,:h0,:c0]
 
-content0 = content
-for k in K:
-	content = trans(0.5*(content+content0), style, k)
+def trans(content0, style0, K):
+	# Zoom
+	zoom_factor = min(content0.shape[0]/style0.shape[0], content0.shape[1]/style0.shape[1])
+	style = np.array([ndimage.zoom(style0[:,:,i], zoom_factor) for i in range(style0.shape[2])])
+	style = style.transpose((1, 2, 0))
+	# Gaussian Pyramid
+	GC, GS = [content0], [style]
+	while min(min(GC[-1].shape[:2]), min(GS[-1].shape[:2])) >= 4*K:
+		GC.append(cv.pyrDown(GC[-1]))
+		GS.append(cv.pyrDown(GS[-1]))
+	# Laplacian
+	LC, LS = [], []
+	for l in range(len(GC)-1):
+		LC.append(GC[l] - cv.pyrUp(GC[l+1], dstsize=(GC[l].shape[1], GC[l].shape[0])))
+		LS.append(GS[l] - cv.pyrUp(GS[l+1], dstsize=(GS[l].shape[1], GS[l].shape[0])))
+	LC.append(GC[-1])
+	LS.append(GS[-1])
+	# transfert and reconstruction
+	L = [trans0(lc, ls, K) for lc, ls in zip(LC, LS)]
+	res = L[-1]
+	for l in range(2, len(L)+1):
+		r_up = cv.pyrUp(res, dstsize=(L[-l].shape[1], L[-l].shape[0]))
+		res = r_up + L[-l]
+	res = np.minimum(style0.max((0, 1)), np.maximum(style0.min((0, 1)), res))
+	return res
 
-# Convert to RGB
-content = np.minimum(style.max((0, 1)), np.maximum(style.min((0, 1)), content[:w0, :h0, :c]))
-content = color.lab2rgb(content)
-imageio.imwrite('test.jpg', content)
+# Transfert
+res = trans(content, style, K)
+res = color.lab2rgb(res)
+pl.imsave('test.jpg', res)
