@@ -358,7 +358,7 @@ double getDist0(Quaternion q) {
 }
 Quaternion getLim(Quaternion q) {
 	double res = 20.;
-	// Quaternion mid(0.);
+	Quaternion mid(100, 100, 100);
 	for(int k = 0; k < MAX; ++k) {
 		#if FUN == 1
 		if(abs(q - 1.) < EPS) return 1.;
@@ -372,14 +372,17 @@ Quaternion getLim(Quaternion q) {
 		const Quaternion c(-0.2,0.8,0,0);
 		const Quaternion r1(1.3270060421587897,-0.48367240335494177), r2(-0.3270060421587897,0.48367240335494177);
 		res = min({res, abs(q-r1), abs(q-r2)});
-		//res = min(res, sqrt(pow(q.b, 2.) + pow(q.c, 2.)));
+		mid.a = min(mid.a, sqrt(pow(q.c-.2, 2.) + pow(q.b-.2, 2.)));
+		mid.b = min(mid.b, sqrt(pow(q.a-.4, 2.) + pow(q.c-.2, 2.)));
+		mid.c = min(mid.c, sqrt(pow(q.a-.4, 2.) + pow(q.b-.2, 2.)));
 		// mid = (k*mid+q)/(k+1);
 		if(abs(q) > 2.) break;
 		q = q*q + c;
 		// res = (k*res+getDist0(q))/(k+1);
 		#endif
 	}
-	// return mid;
+	mid.d=res;
+	return mid;
 	return res;
 }
 double getDist(const Quaternion &q, double time) {
@@ -477,7 +480,8 @@ int main() {
 				// const double R = sqrt(3./4.);
 				// const vec3 col_mat(.04+(lim.a+.5)/4., .02+(lim.b+R)/3.6, .04+(lim.c+R)/3.4);
 				// const vec3 col_mat = .1*(normal + vec3(dot(lim, basis[0]), dot(lim, basis[1]), dot(lim, basis[2])))+.2;
-				const vec3 col_mat = .04*normal+(.02+.25*lim.a)*vec3(1.,1.,1.);
+				// const vec3 col_mat = .04*normal+(.02+.25*lim.a)*vec3(1.,1.,1.);
+				const vec3 col_mat = (1.15*pow(lim.d, 1.4)+.05)*(.08*normal+.04*vec3(1.,1.,1.)+.15*vec3(lim.a, lim.b, lim.c))+.015*vec3(1.,1.,1.);
 
 				const vec3 sun_dir = vec3(10.*time-5., -4., 7.).normalize();
 				const double sun_dif = clamp(dot(normal, sun_dir), 0., 1.);
